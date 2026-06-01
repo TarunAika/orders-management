@@ -1,0 +1,12 @@
+http:
+  port: "8082"
+  timeout: "30000"
+
+
+db:
+  host: ''
+  port: ''
+  user: ''
+  password: ''
+  database: ''
+  

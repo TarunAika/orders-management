@@ -1,0 +1,12 @@
+host:
+  port: "8081"
+  timeout: "30000"
+  
+
+http:
+  request:
+    host: "http://localhost:8082"
+    port: "443"
+    
+api:
+  id: ""

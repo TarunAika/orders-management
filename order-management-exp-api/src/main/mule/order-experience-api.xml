@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd ">
+    <apikit:config name="order-experience-api-config" api="resource::1cfb9dce-4072-49ca-8aad-a06dfc643747:order-experience-api:1.0.6:raml:zip:order-experience-api.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <flow name="order-experience-api-main">
+        <http:listener config-ref="httpListenerConfig" path="/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body><![CDATA[#[payload]]]></http:body>
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="order-experience-api-config" />
+        <error-handler ref="Experience_Error_Handler" />
+    </flow>
+    <flow name="post:\orders:application\json:order-experience-api-config">
+        <logger level="INFO" doc:name="Logger" doc:id="46897f72-7c17-47eb-8f59-9a82b4be109a" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    layer: "EXPERIENCE - ORDERS FLOW",&#10;    event: "INBOUND REQUEST",&#10;    correlationId: correlationId,&#10;    payload: payload,&#10;    timestamp: now()&#10;}]'/>
+		<ee:transform doc:name="Input to order" doc:id="68949c7a-c124-4d6a-af72-39beb10de652">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <http:request doc:name="Forward to orchestration" doc:id="e36b1dfc-6e58-4c15-95fa-ba23e30890f7" config-ref="HTTP_Request_config" method="POST" path="/orders" />
+        <ee:transform doc:name="Response to End user" doc:id="b84249d0-90bc-4538-8c80-795a5dd04b77">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+		<logger level="INFO" doc:name="Log End Response" doc:id="cb912997-3d80-4200-b00a-4b293c776b09" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    layer: "EXPERIENCE - ORDERS FLOW",&#10;    event: "OUTBOUND RESPONSE TO CLIENT",&#10;    correlationId: correlationId,&#10;    httpStatus: vars.httpStatus default 200,&#10;    payload: payload,&#10;    timestamp: now()&#10;}]'/>
+    </flow>
+    <flow name="post:\stock\availability:application\json:order-experience-api-config">
+        <logger level="INFO" doc:name="Logger" doc:id="c7a5e27a-99da-400f-b39b-596446d13efd" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    layer: "EXPERIENCE - STOCK CHECKING FLOW",&#10;    event: "INBOUND REQUEST",&#10;    correlationId: correlationId,&#10;    payload: payload,&#10;    timestamp: now()&#10;}]'/>
+		<ee:transform doc:name="Input to check inventory" doc:id="5b0857ae-c713-4fa4-bae7-b2f5872be64b">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <http:request doc:name="Forward to orchestration" doc:id="96aa3bec-daf1-4eb4-810b-2ff1e31bee1f" config-ref="HTTP_Request_config" method="POST" path="/stock/availability" />
+        <ee:transform doc:name="Response to end user" doc:id="4e71d55c-fa7c-427f-9506-88b76349230b">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+		<logger level="INFO" doc:name="Log End Response" doc:id="d010c363-8699-4b3d-92e8-1cdae6246f45" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    layer: "EXPERIENCE - STOCK CHECKING FLOW",&#10;    event: "OUTBOUND_RESPONSE",&#10;    correlationId: correlationId,&#10;    httpStatus: vars.httpStatus default 200,&#10;    payload: payload,&#10;    timestamp: now()&#10;}]'/>
+    </flow>
+</mule>

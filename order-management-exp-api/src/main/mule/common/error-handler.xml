@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+    xmlns="http://www.mulesoft.org/schema/mule/core"
+    xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+
+    <error-handler name="Experience_Error_Handler" doc:id="0797c60d-720e-42ae-b46a-974fd8ddb0eb">
+
+
+        <on-error-propagate type="APIKIT:BAD_REQUEST">
+            <logger level="ERROR" doc:name="Logger" doc:id="a22a8313-c119-4899-b082-f90a9e2141e8" message="#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    errorCode: 400,&#10;    message: error.description,&#10;    correlationId: correlationId,&#10;    timestamp: now()&#10;}]"/>
+			<ee:transform doc:name="400 Bad Request">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode: 400,
+    message: error.description,
+    correlationId: correlationId,
+    timestamp: now()
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable variableName="httpStatus">400</ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+        </on-error-propagate>
+
+        <on-error-propagate type="APIKIT:NOT_FOUND">
+            <logger level="ERROR" doc:name="Logger" doc:id="2673b2c2-185d-4244-9a91-370261ff568e" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    errorCode: 404,&#10;    message: "Resource not found",&#10;    correlationId: correlationId,&#10;    timestamp: now()&#10;}]' />
+			<ee:transform doc:name="404 Not Found">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode: 404,
+    message: "Resource not found",
+    correlationId: correlationId,
+    timestamp: now()
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+        </on-error-propagate>
+
+        <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+            <logger level="ERROR" doc:name="Logger" doc:id="2f2c419d-f4f7-4df9-8db5-6d38c70c4c4f" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    errorCode: 405,&#10;    message: "Method not allowed",&#10;    correlationId: correlationId,&#10;    timestamp: now()&#10;}]' />
+			<ee:transform doc:name="405 Method Not Allowed">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode: 405,
+    message: "Method not allowed",
+    correlationId: correlationId,
+    timestamp: now()
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable variableName="httpStatus">405</ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+        </on-error-propagate>
+
+        <on-error-propagate type="APIKIT:UNSUPPORTED_MEDIA_TYPE">
+            <logger level="ERROR" doc:name="Logger" doc:id="f7136cf8-14d5-43da-b6aa-8919e4712792" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    errorCode: 415,&#10;    message: "Unsupported media type",&#10;    correlationId: correlationId,&#10;    timestamp: now()&#10;}]' />
+			<ee:transform doc:name="415 Unsupported Media Type">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode: 415,
+    message: "Unsupported media type",
+    correlationId: correlationId,
+    timestamp: now()
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable variableName="httpStatus">415</ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+        </on-error-propagate>
+
+        <on-error-propagate type="APIKIT:NOT_IMPLEMENTED">
+            <logger level="ERROR" doc:name="Logger" doc:id="42da93ef-2506-4898-b8a3-b8a47848ac5f" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    errorCode: 501,&#10;    message: "Not implemented",&#10;    correlationId: correlationId,&#10;    timestamp: now()&#10;}]' />
+			<ee:transform doc:name="501 Not Implemented">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode: 501,
+    message: "Not implemented",
+    correlationId: correlationId,
+    timestamp: now()
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable variableName="httpStatus">501</ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+        </on-error-propagate>
+
+
+        <on-error-propagate type="HTTP:NOT_FOUND">
+            <logger level="ERROR" doc:name="Logger" doc:id="f35dcdf0-1f33-4be9-990b-188894b2b00b" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    errorCode: 502,&#10;    message: "Downstream resource not found in process layer",&#10;    correlationId: correlationId,&#10;    timestamp: now()&#10;}]' />
+			<ee:transform doc:name="502 Process API Resource Not Found">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode: 502,
+    message: "Downstream resource not found in process layer",
+    correlationId: correlationId,
+    timestamp: now()
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable variableName="httpStatus">502</ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+        </on-error-propagate>
+
+        <on-error-propagate type="HTTP:CONNECTIVITY">
+            <logger level="ERROR" doc:name="Logger" doc:id="dca2bedf-c291-4157-8b59-34474af067c8" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    errorCode: 503,&#10;    message: "Process API is currently unavailable. Please try again later.",&#10;    correlationId: correlationId,&#10;    timestamp: now()&#10;}]' />
+			<ee:transform doc:name="503 Process API Unreachable">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode: 503,
+    message: "Process API is currently unavailable. Please try again later.",
+    correlationId: correlationId,
+    timestamp: now()
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable variableName="httpStatus">503</ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+        </on-error-propagate>
+
+        <on-error-propagate type="HTTP:UNAUTHORIZED">
+            <logger level="ERROR" doc:name="Logger" doc:id="f3c99a15-0d33-4d14-bfb8-b537d9ff8e13" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    errorCode: 401,&#10;    message: "Unauthorized: missing or invalid credentials",&#10;    correlationId: correlationId,&#10;    timestamp: now()&#10;}]' />
+			<ee:transform doc:name="401 Unauthorized">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode: 401,
+    message: "Unauthorized: missing or invalid credentials",
+    correlationId: correlationId,
+    timestamp: now()
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable variableName="httpStatus">401</ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+        </on-error-propagate>
+
+        <on-error-propagate type="HTTP:FORBIDDEN">
+            <logger level="ERROR" doc:name="Logger" doc:id="6bf56524-280a-4843-aded-4c8114f28553" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    errorCode: 403,&#10;    message: "Access to the requested resource is forbidden",&#10;    correlationId: correlationId,&#10;    timestamp: now()&#10;}]' />
+			<ee:transform doc:name="403 Forbidden">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode: 403,
+    message: "Access to the requested resource is forbidden",
+    correlationId: correlationId,
+    timestamp: now()
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable variableName="httpStatus">403</ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+        </on-error-propagate>
+
+
+        <on-error-propagate type="ANY">
+            <logger level="ERROR" doc:name="Logger" doc:id="fbf5fc9f-4c71-4b73-abd0-93bfdeaddf5a" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    errorCode: 500,&#10;    message: "An unexpected error occurred. Please contact support.",&#10;    correlationId: correlationId,&#10;    timestamp: now()&#10;}]' />
+			<ee:transform doc:name="500 Internal Server Error">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode: 500,
+    message: error.description,
+    correlationId: correlationId,
+    timestamp: now()
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable variableName="httpStatus"><![CDATA[500]]></ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+        </on-error-propagate>
+
+    </error-handler>
+
+</mule>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:api-gateway="http://www.mulesoft.org/schema/mule/api-gateway" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/api-gateway http://www.mulesoft.org/schema/mule/api-gateway/current/mule-api-gateway.xsd">
+<http:listener-config name="httpListenerConfig">
+        <http:listener-connection host="0.0.0.0" port="${host.port}" readTimeout="${host.timeout}"/>
+    </http:listener-config>
+    
+	<http:request-config name="HTTP_Request_config" doc:name="HTTP Request config" doc:id="763056b8-6969-41eb-a10c-825ea107af32" responseTimeout="100000">
+		<http:request-connection host="${http.request.host}" port="${http.request.port}" protocol="HTTPS">
+			<reconnection >
+				<reconnect count="3"/>
+			</reconnection>
+		</http:request-connection>
+	</http:request-config>
+	<configuration-properties doc:name="Configuration properties" doc:id="92685d43-ccca-43b3-87cb-c1a7098633cd" file="properties/${mule.env}.yaml" />
+	 <api-gateway:autodiscovery apiId="${api.id}" ignoreBasePath="true" doc:name="API Autodiscovery" doc:id="37b893c3-2f58-4edb-9ddf-dda865e00a52" flowRef="order-experience-api-main" />
+</mule>

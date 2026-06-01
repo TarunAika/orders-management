@@ -1,0 +1,24 @@
+%dw 2.0
+
+type auto_56715f29_ebf0_4979_b478_560c55c10d6a_Input_Variables_orderObject = {
+  paymentMode: String, 
+  deliveryPreference: String, 
+  orderChannel: String, 
+  items: Array<{    quantity: Number,     sku: String,     _?: Any  }>, 
+  customer: {
+    phoneNumber: String, 
+    address: {
+      city: String, 
+      postalCode: String, 
+      state: String, 
+      line2?: String, 
+      line1: String, 
+      _?: Any
+    }, 
+    fullName: String, 
+    email: String, 
+    _?: Any
+  }, 
+  _?: Any
+}
+

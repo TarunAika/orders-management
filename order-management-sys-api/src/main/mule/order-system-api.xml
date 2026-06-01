@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:os="http://www.mulesoft.org/schema/mule/os" xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd  http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
+    <apikit:config name="order-system-api-config" api="resource::1cfb9dce-4072-49ca-8aad-a06dfc643747:order-system-api:1.0.5:raml:zip:order-system-api.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <flow name="order-system-api-main">
+        <http:listener path="/*" config-ref="order-system-api-httpListenerConfig">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body><![CDATA[#[payload]]]></http:body>
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="order-system-api-config" />
+        <error-handler ref="Common_Error_Handler" />
+    </flow>
+    <flow name="get:\inventory:order-system-api-config">
+        <logger level="INFO" doc:name="Logger" doc:id="a418320e-7b71-4f32-8bbd-80dbc145d195" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    layer: "SYSTEM - INVENTORY FLOW",&#10;    event: "INBOUND REQUEST FROM PROCESS API",&#10;    correlationId: correlationId,&#10;    payload: payload,&#10;    timestamp: now()&#10;}]'/>
+		<ee:transform doc:name="Requested SKUs" doc:id="8a2c2d23-6477-4fe3-8a84-a209af9a91cd">
+            <ee:message />
+            <ee:variables>
+                <ee:set-variable variableName="requestedSKU"><![CDATA[%dw 2.0
+output application/java
+var skus = (attributes.queryParams.skus splitBy ",") map ('"' ++ $ ++ '"') joinBy ","
+---
+"select * from INVENTORY where sku in ($(skus));"]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <db:select doc:name="Retrieve the stock details" doc:id="88a05987-7f89-4f84-8bdd-849d14421f19" config-ref="Database_Config">
+			<db:sql ><![CDATA[#[vars.requestedSKU]]]></db:sql>
+        </db:select>
+        <logger level="INFO" doc:name="Log Stock details" doc:id="717e600f-b3e4-4423-86d9-55161f1e7eae" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    layer: "SYSTEM - INVENTORY FLOW",&#10;    event: "SENDING DB SELECT RESULT TO PROCESS API",&#10;    correlationId: correlationId,&#10;    payload: payload,&#10;    timestamp: now()&#10;}]' />
+        <ee:transform doc:name="Stock details Payload" doc:id="b31b5ba9-3495-4ef3-bed3-40da9b6f450d">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="post:\orders:application\json:order-system-api-config">
+        <logger level="INFO" doc:name="Logger" doc:id="3ed41ad1-8413-4382-bdf0-ca7306bc98ee" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    layer: "SYSTEM - ORDERS FLOW",&#10;    event: "INBOUND REQUEST FROM PROCESS API",&#10;    correlationId: correlationId,&#10;    payload: payload,&#10;    timestamp: now()&#10;}]'/>
+		<ee:transform doc:name="Split Input Payload" doc:id="8320bca0-9751-4fe3-abd9-724e2fda1b4a">
+            <ee:message />
+            <ee:variables>
+                <ee:set-variable variableName="customerDetails"><![CDATA[%dw 2.0
+output application/java
+---
+payload.customer]]></ee:set-variable>
+                <ee:set-variable variableName="orderDetails"><![CDATA[%dw 2.0
+output application/java
+var customer = payload.customer
+var items = payload.items
+---
+items map (item) -> {
+    "phoneNumber": customer.phoneNumber,
+    "sku": item.sku,
+    "quantity": item.quantity,
+    "isEligible": item.isEligible,
+    "orderChannel": payload.orderChannel,
+    "paymentMode": payload.paymentMode,
+    "deliveryPreference": payload.deliveryPreference  
+} ++ if(item.isEligible) {
+    orderId: "ODR-" ++  now() as String {format: "yyyyMMdd"} ++ "-" ++ round(random()*89999)+10000
+}  else {}]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+		<flow-ref doc:name="Customer details reference" doc:id="2241ed4c-7416-4121-b233-f1c09b04c9e5" name="customer-details-insertionFlow"/>
+		<ee:transform doc:name="Order details" doc:id="3b52eb10-bf3d-4d01-a18f-e48bd2f192dc">
+            <ee:message />
+            <ee:variables>
+                <ee:set-variable variableName="orders"><![CDATA[%dw 2.0
+output application/java
+---
+vars.orderDetails filter $.isEligible]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+		<logger level="INFO" doc:name="Log order details" doc:id="fdc85180-3dce-4e1e-808d-618848b76569" message="#[vars.orders]" />
+		<foreach doc:name="For Each" doc:id="3ac3a436-1526-4049-a03b-8ca7b2e09c91" collection="#[vars.orders]">
+			<logger level="INFO" doc:name="Log each order record" doc:id="e03e0e3a-d7d2-4c6a-b721-8fd6853d8575" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    event: "ORDER_INSERT_ATTEMPT",&#10;    timestamp: now(),&#10;    payload: payload&#10;}]' />
+            <db:insert doc:name="Store Order Details" doc:id="a01bf6ea-4a11-45e0-9285-4314eae8170e" autoGenerateKeys="true" target="storeOrderDetails" config-ref="Database_Config">
+                <db:sql><![CDATA[insert into ORDERS
+(order_id, phone_number, sku, quantity, order_channel, payment_mode, delivery_preference) 
+values 
+(:order_id , :phone_number , :sku , :quantity , :order_channel, :payment_mode , :delivery_preference);
+
+]]></db:sql>
+                <db:input-parameters><![CDATA[#[{
+    order_id: payload.orderId,
+    phone_number: payload.phoneNumber,
+    sku: payload.sku,
+    quantity: payload.quantity,
+    status: payload.status,
+    failure_reason: payload.failureReason,
+    order_channel: payload.orderChannel,
+    payment_mode: payload.paymentMode,
+    delivery_preference: payload.deliveryPreference
+}]]]></db:input-parameters>
+            </db:insert>
+			<db:update doc:name="Update Inventory" doc:id="60df705c-4c85-4c48-882a-d6645cf09542" config-ref="Database_Config">
+				<db:sql ><![CDATA[update INVENTORY 
+set quantity_available = quantity_available - :updated_quantity
+where sku = :sku
+and quantity_available >= :updated_quantity;]]></db:sql>
+				<db:input-parameters ><![CDATA[#[{
+	sku: payload.sku,
+	updated_quantity: payload.quantity
+}]]]></db:input-parameters>
+			</db:update>
+        </foreach>
+		<ee:transform doc:name="Response to Process" doc:id="170e996d-4f38-4ea9-80a0-4cf0d302a732">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+vars.orderDetails]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+		<logger level="INFO" doc:name="Log event" doc:id="32e2b338-e328-414d-baeb-9e2ede19a87d" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    layer: "SYSTEM - ORDERS FLOW",&#10;    event: "SENDING DB RESULT TO PROCESS API",&#10;    correlationId: correlationId,&#10;    timestamp: now()&#10;}]' />
+    </flow>
+</mule>

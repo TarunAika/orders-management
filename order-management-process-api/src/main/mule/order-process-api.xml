@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd ">
+    
+    <apikit:config name="order-process-api-config" api="resource::1cfb9dce-4072-49ca-8aad-a06dfc643747:order-process-api:1.0.2:raml:zip:order-process-api.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <flow name="order-process-api-main">
+    <http:listener config-ref="httpListenerConfig" path="/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body><![CDATA[#[payload]]]></http:body>
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="order-process-api-config" />
+        <error-handler ref="Error_Handler">
+            
+        </error-handler>
+    </flow>
+    <flow name="post:\orders:application\json:order-process-api-config">
+		<logger level="INFO" doc:name="Log Inbound" doc:id="882fdacf-1cb9-4a36-8f55-9c1839472f1a" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    layer: "PROCESS - ORDERS FLOW",&#10;    event: "INBOUND REQUEST FROM EXP API",&#10;    correlationId: correlationId,&#10;    payload: payload,&#10;    timestamp: now()&#10;}]'/>
+		<ee:transform doc:name="Order Request body" doc:id="631bd637-47a9-41f2-a120-3c59195a5466" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="orderObject" ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<set-variable value="#[%dw 2.0&#10;output application/java&#10;---&#10;vars.orderObject.items.sku map $ joinBy  ',']" doc:name="queryParams" doc:id="18d37ba6-c158-4878-9ddd-a67d5028a5b2" variableName="queryParams"/>
+		<logger level="INFO" doc:name="Log QueryParams" doc:id="1d6b3a63-b8f5-49e3-8e7a-731d7367cd2c" message="#[vars.queryParams]"/>
+		<flow-ref doc:name="Retreive Inventory Details" doc:id="f310dc77-9299-4fba-9496-7d4899253915" name="inventory-flowFlow"/>
+		<choice doc:name="If SKUs exists" doc:id="86154d71-1409-4d73-91fb-39440ffa9eac" >
+			<when expression="#[payload != []]">
+				<ee:transform doc:name="Available &amp; Requested quantity" doc:id="aae7c396-7127-4dce-9030-52eaefbd372b">
+			<ee:message>
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable variableName="requestedQuantity"><![CDATA[%dw 2.0
+output application/java
+---
+vars.orderObject.items]]></ee:set-variable>
+				<ee:set-variable variableName="availableQuantity"><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+				<logger level="INFO" doc:name="Log available quantity" doc:id="9eae462f-9220-4b62-a77c-9be3cecc0bd9" message='#[vars.availableQuantity]' />
+				<ee:transform doc:name="Check availability" doc:id="c5f75839-b677-4fc9-b389-767abba5f00b">
+			<ee:message>
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable variableName="stockCheck"><![CDATA[%dw 2.0
+output application/json
+var stockMap = vars.availableQuantity groupBy ($.sku)
+
+var checkedItems = vars.requestedQuantity map (req) -> {
+    sku: req.sku,
+    requested_qty: req.quantity,
+    exists: stockMap[req.sku]?,
+    sufficient: (stockMap[req.sku][0].quantity_available default 0) >= req.quantity,
+    available_qty: stockMap[req.sku][0].quantity_available default 0
+}
+---
+
+{
+    eligibleItems: checkedItems filter (i) -> i.exists and i.sufficient,
+    ineligibleItems: checkedItems filter (i) -> (not i.exists) or (not i.sufficient),
+    hasEligible: isEmpty(checkedItems filter (i) -> i.exists and i.sufficient) == false
+}]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+				<logger level="INFO" doc:name="Log Stock Checking" doc:id="157efcfb-da10-4091-8f83-43add850d3a5" message="#[vars.stockCheck]" />
+				<choice doc:name="If eligible to place order" doc:id="38afd39f-1790-497a-8fd5-25c6535966bb">
+			<when expression="#[vars.stockCheck.hasEligible]">
+				<ee:transform doc:name="System Request" doc:id="805557b9-89b2-4b76-a924-ff6a7511d1d4">
+					<ee:message>
+					</ee:message>
+
+					<ee:variables>
+						<ee:set-variable variableName="sysInput"><![CDATA[%dw 2.0
+output application/json
+
+var eligibleSkus = vars.stockCheck.eligibleItems map (i) -> i.sku
+---
+{
+    customer: vars.orderObject.customer,
+    orderChannel: vars.orderObject.orderChannel,
+    paymentMode: vars.orderObject.paymentMode,
+    items: vars.orderObject.items map (item) -> item ++ {
+    	isEligible: eligibleSkus contains item.sku},
+    deliveryPreference: vars.orderObject.deliveryPreference
+}]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+				<logger level="INFO" doc:name="Log system request" doc:id="9264b659-cf46-44ac-b1c1-45f0b90b7da8" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    layer: "PROCESS - ORDERS FLOW",&#10;    event: "SYSTEM API REQUEST",&#10;    correlationId: correlationId,&#10;    sysInput: vars.sysInput,&#10;    timestamp: now()&#10;}]'/>
+						<http:request doc:name="Request" doc:id="1d6e959f-2a66-4037-a8fa-6b19a5a8bc7c" config-ref="HTTP_Request_config" method="POST" path="/orders">
+					<http:body><![CDATA[#[vars.sysInput]]]></http:body>
+				</http:request>
+			</when>
+			<otherwise>
+				<ee:transform doc:name="Orders not placed" doc:id="908cc8a0-10ff-4b62-8093-ec094c65b70f">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+vars.stockCheck.ineligibleItems map {
+    phoneNumber: vars.orderObject.customer.phoneNumber,
+    sku: $.sku,
+    quantity: $.requested_qty,
+    isEligible: ($.exists and $.sufficient),
+    orderChannel: vars.orderObject.orderChannel,
+    paymentMode: vars.orderObject.paymentMode,
+    deliveryPreference: vars.orderObject.deliveryPreference
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+				<ee:transform doc:name="Response to Experience" doc:id="94f6ece6-11a5-4d26-bda8-37bea648bfe6">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var totalOrders = sizeOf(payload)
+var totalOrdersPlaced = sizeOf(payload filter (item) -> item.orderId != null)
+---
+
+{
+    phoneNumber: payload.phoneNumber[0],
+    requestStatus: if(totalOrdersPlaced == totalOrders) "ALL_SUCCESS" else if(totalOrdersPlaced == 0) "ALL_FAILURE" else "PARTIAL_SUCCESS",
+    itemsResult: payload map (item) -> {
+        sku: item.sku,
+        quantity: item.quantity,
+        status: if(item.isEligible) "Order Placed" else "Sorry, not placed"
+    } ++  if(item.isEligible) {
+        orderId: item.orderId
+    } else {}
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<logger level="INFO" doc:name="Log Response  to Exp" doc:id="07b53a69-25a3-4549-a0f0-b9da8f61a7eb" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    layer: "PROCESS - ORDERS FLOW",&#10;    event: "RESPONSE TO EXPERIENCE API",&#10;    correlationId: correlationId,&#10;    sysInput: payload,&#10;    timestamp: now()&#10;}]'/>
+			</when>
+			<otherwise>
+				<ee:transform doc:name="Transform Message" doc:id="83609285-29b6-4cfa-9304-40f30cf23f40" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    phoneNumber: vars.orderObject.customer.phoneNumber,
+    requestStatus: "ALL_FAILURE",
+    itemsResult: vars.orderObject.items map (item) -> item ++ {
+        failureReason: "SKU does not exists."
+	}
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+    </flow>
+    <flow name="post:\stock\availability:application\json:order-process-api-config">
+		<ee:transform doc:name="Stock Request body" doc:id="8e54a6ae-2550-4266-a9af-58fc7368c6d1" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<set-variable value='#[%dw 2.0&#10;output application/java&#10;---&#10;payload.skus  map ($) joinBy ","]' doc:name="Body to Query Params input" doc:id="42af6237-4145-4ae7-ba8d-cd6ecde7acb8" variableName="queryParams" />
+		<logger level="INFO" doc:name="Log QueryParams" doc:id="cc2aaeea-4471-408b-982a-679b92d91484" message="#[vars.queryParams]"/>
+		<flow-ref doc:name="Retreive Inventory Details" doc:id="b205282c-e98e-47d7-81a5-2d7fbfc3251e" name="inventory-flowFlow"/>
+		<ee:transform doc:name="Response to Experience" doc:id="686b0043-e67f-4812-8d35-84e6194409db" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    "stock": payload map ((item) -> item ++  {
+        "isAvailable": item.quantity_available > 0
+    })
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Log Response to Exp" doc:id="d5193439-71c1-4f3c-ae14-5eeb8689a980" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    layer: "PROCESS - INVENTORY FLOW",&#10;    event: "STOCK AVAILABILITY RESPONSE TO EXPERIENCE API",&#10;    correlationId: correlationId,&#10;    response: payload,&#10;    timestamp: now()&#10;}]'/>
+    </flow>
+</mule>

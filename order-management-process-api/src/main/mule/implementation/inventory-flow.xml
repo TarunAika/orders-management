@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+	<flow name="inventory-flowFlow" doc:id="56715f29-ebf0-4979-b478-560c55c10d6a" >
+		<logger level="INFO" doc:name="Log QPs" doc:id="e807494c-20c5-48ab-8110-94b6d542119b" message="#[vars.queryParams]"/>
+		<http:request doc:name="Request" doc:id="10380932-c517-4ade-a06c-5a3a82b23cde" config-ref="HTTP_Request_config" path="/inventory" sendBodyMode="NEVER">
+			<http:query-params ><![CDATA[#[{
+	skus: vars.queryParams
+}]]]></http:query-params>
+		</http:request>
+	</flow>
+</mule>
